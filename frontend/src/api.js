@@ -52,6 +52,6 @@ export const api = {
   },
   getForecast() {
     if (!MOCK) return request('/weather');
-    return wait({ rain: true, text: 'Hujan diperkirakan sore ini. Agen AI menaikkan prioritas tempat sampah yang hampir penuh.' });
+    return wait({ available: true, rain_expected: true, rainy_periods: 1, summary: 'Hujan diperkirakan pada 1 periode (3 jam) dalam 24 jam ke depan.' });
   },
 };
