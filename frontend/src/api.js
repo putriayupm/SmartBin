@@ -46,7 +46,8 @@ export const api = {
   getSchedule() {
     if (!MOCK) return request('/schedules/today');
     const s = getSession();
-    return wait(s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule);
+    const list = s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule;
+    return wait([...list].sort((a, b) => a.route_order - b.route_order));
   },
   async markCollected(id) {
     if (!MOCK) return request(`/schedules/${id}/collected`, { method: 'PATCH' });
@@ -59,6 +60,29 @@ export const api = {
       summary: 'Hujan diperkirakan sore ini, jadi rumah dengan tempat sampah hampir penuh didahulukan dan beberapa rumah dengan isi sedang ikut dimasukkan.',
       generated_by: 'ai',
     });
+  },
+    // override (mock)
+  async removeStop(id) {
+    if (!MOCK) return request(`/schedules/${id}/skip`, { method: 'PATCH' });
+    schedule = schedule.map((x) => (x.schedule_id === id && x.status === 'pending' ? { ...x, status: 'skipped' } : x));
+    return wait({ message: 'ok' });
+  },
+  // swaps route_order with the neighbour in the same zone
+  async moveStop(id, direction) {
+    if (!MOCK) return request(`/schedules/${id}/move`, { method: 'PATCH', body: JSON.stringify({ direction }) });
+    const me = schedule.find((x) => x.schedule_id === id);
+    if (!me || me.status !== 'pending') return wait({ message: 'ok' });
+    const sameZone = schedule
+      .filter((x) => x.zone === me.zone && x.status === 'pending')
+      .sort((a, b) => a.route_order - b.route_order);
+    const i = sameZone.findIndex((x) => x.schedule_id === id);
+    const other = sameZone[direction === 'up' ? i - 1 : i + 1];
+    if (!other) return wait({ message: 'ok' }); // already first/last
+    const a = me.route_order, b = other.route_order;
+    schedule = schedule.map((x) =>
+      x.schedule_id === me.schedule_id ? { ...x, route_order: b }
+      : x.schedule_id === other.schedule_id ? { ...x, route_order: a } : x);
+    return wait({ message: 'ok' });
   },
   getOfficers() {
     if (!MOCK) return request('/users/officers');
