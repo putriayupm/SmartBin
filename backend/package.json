@@ -4,9 +4,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-  "dev": "node --watch src/app.js",
-  "seed": "node seed.js"
-},
+    "dev": "node --watch src/app.js",
+    "seed": "node seed.js",
+    "test": "node --test"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
