@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
-import { pool } from './src/config/db.js';
+import { pool } from './config/db.js';
 
 const hash = await bcrypt.hash('smartbin123', 10);
 
