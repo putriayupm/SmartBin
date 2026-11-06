@@ -4,14 +4,17 @@ import { fillColor } from './Schedule.jsx';
 
 export default function Dashboard() {
   const [rows, setRows] = useState([]); const [officers, setOfficers] = useState([]); const [fc, setFc] = useState(null);
-  useEffect(() => { api.getSchedule().then(setRows); api.getOfficers().then(setOfficers); api.getForecast().then(setFc); }, []);
+  useEffect(() => { api.getSchedule().then(setRows); api.getOfficers().then(setOfficers); api.getForecast().then(setFc).catch(() => setFc({ available: false })); }, []);
   const done = rows.filter((r) => r.status === 'collected').length;
   const near = rows.filter((r) => r.status !== 'collected' && r.current_fill_level > 80).length;
   const top = [...rows].filter((r) => r.status !== 'collected').sort((a, b) => b.current_fill_level - a.current_fill_level).slice(0, 5);
   const pct = rows.length ? Math.round((done / rows.length) * 100) : 0;
   return (<>
     <h1>Dasbor operator</h1><p className="muted">Ringkasan pengambilan sampah hari ini.</p>
-    {fc?.rain && <div className="banner" role="status"><b>Cuaca memengaruhi jadwal.</b> {fc.text}</div>}
+      {fc?.available && (fc.rain_expected
+      ? <div className="banner" role="status"><b>Peringatan cuaca.</b> {fc.summary} <span className="muted">Sumber: BMKG</span></div>
+            : <p className="muted" role="status" style={{ margin: '1rem 0 1.25rem' }}>{fc.summary} Sumber: BMKG</p>)}
+    {fc && !fc.available && <p className="muted" role="status" style={{ margin: '1rem 0 1.25rem' }}>Data cuaca BMKG sedang tidak tersedia.</p>}
     <div className="stats">
       <div className="card stat"><b>{rows.length}</b>Rumah dijadwalkan</div>
       <div className="card stat alert"><b>{near}</b>Hampir penuh (di atas 80%)</div>
