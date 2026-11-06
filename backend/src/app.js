@@ -4,6 +4,10 @@ import cors from 'cors';
 import { pool } from './config/db.js';
 import authRoutes from './routes/auth.js';
 import householdRoutes from './routes/households.js';
+import scheduleRoutes from './routes/schedules.js';
+import userRoutes from './routes/users.js';
+import historyRoutes from './routes/history.js';
+import weatherRoutes from './routes/weather.js';
 
 const app = express();
 app.use(cors());
@@ -20,6 +24,10 @@ app.get('/api/health', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/households', householdRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/history', historyRoutes);
+app.use('/api/weather', weatherRoutes);
 
 // Fallback error handler (Express 5 forwards async errors here)
 app.use((err, req, res, next) => {
