@@ -8,8 +8,13 @@ export const logout = () => localStorage.removeItem('session');
 
 async function request(path, options = {}) {
   const s = getSession();
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers: {
-    'Content-Type': 'application/json', ...(s && { Authorization: `Bearer ${s.token}` }) } });
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers: {
+      'Content-Type': 'application/json', ...(s && { Authorization: `Bearer ${s.token}` }) } });
+  } catch {
+    throw new Error('Tidak dapat terhubung ke server. Periksa koneksi atau coba lagi nanti.');
+  }
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || `Gagal (${res.status})`);
   return res.json();
 }
@@ -35,6 +40,13 @@ let schedule = [
   h(8, 'Eko Prabowo', 'Blok C No. 10', 'C', 58, 55, 'Tempat sampah 58% penuh. Dimasukkan agar tidak menumpuk saat hujan.'),
   h(9, 'Tuti Handayani', 'Blok C No. 18', 'C', 67, 65, 'Tempat sampah 67% penuh dan laju pengisian sedang.'),
 ].map((x, i) => ({ ...x, route_order: i + 1 }));
+
+// Translates the agreed weather contract {available, rain_expected, rainy_periods, summary}
+// into the shape the Dashboard uses {rain, text}. If the forecast is unavailable, show no banner.
+const adaptForecast = (f) => ({
+  rain: Boolean(f?.available && f?.rain_expected),
+  text: f?.summary || '',
+});
 
 export const api = {
   async login({ username, password, role }) {
@@ -88,8 +100,11 @@ export const api = {
     if (!MOCK) return request('/users/officers');
     return wait(users.filter((u) => u.role === 'officer'));
   },
-  getForecast() {
-    if (!MOCK) return request('/weather');
-    return wait({ available: true, rain_expected: true, rainy_periods: 1, summary: 'Hujan diperkirakan pada 1 periode (3 jam) dalam 24 jam ke depan.' });
+  async getForecast() {
+    if (!MOCK) return adaptForecast(await request('/weather'));
+    return wait(adaptForecast({
+      available: true, rain_expected: true, rainy_periods: 3,
+      summary: 'Hujan diperkirakan sore ini. Agen AI menaikkan prioritas tempat sampah yang hampir penuh.',
+    }));
   },
 };
