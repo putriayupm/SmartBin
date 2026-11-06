@@ -20,13 +20,20 @@ const users = [
   { username: 'dedi.kurniawan', name: 'Dedi Kurniawan', role: 'officer', zone: 'C' },
   { username: 'hendra.wijaya', name: 'Hendra Wijaya', role: 'operator', zone: null },
 ];
-const h = (id, name, address, zone, fill) => ({ schedule_id: id, name, address, zone, current_fill_level: fill, status: 'pending' });
+const h = (id, name, address, zone, fill, score, reason) => ({
+  schedule_id: id, name, address, zone, current_fill_level: fill,
+  priority_score: score, reason, status: 'pending',
+});
 let schedule = [
-  h(1, 'Sari Wulandari', 'Blok A No. 12', 'A', 92), h(2, 'Budi Santoso', 'Blok A No. 7', 'A', 88),
-  h(3, 'Dewi Lestari', 'Blok A No. 21', 'A', 71), h(4, 'Agus Hartono', 'Blok B No. 3', 'B', 85),
-  h(5, 'Rina Marlina', 'Blok B No. 15', 'B', 64), h(6, 'Hasan Basri', 'Blok B No. 9', 'B', 48),
-  h(7, 'Lina Anggraini', 'Blok C No. 3', 'C', 90), h(8, 'Eko Prabowo', 'Blok C No. 10', 'C', 58),
-  h(9, 'Tuti Handayani', 'Blok C No. 18', 'C', 67),
+  h(1, 'Sari Wulandari', 'Blok A No. 12', 'A', 92, 96, 'Tempat sampah 92% penuh dan diperkirakan penuh hari ini. Hujan sore membuat sampah lebih berat dan lebih sulit diangkut besok.'),
+  h(2, 'Budi Santoso', 'Blok A No. 7', 'A', 88, 90, 'Tempat sampah 88% penuh, diperkirakan penuh dalam kurang dari sehari.'),
+  h(3, 'Dewi Lestari', 'Blok A No. 21', 'A', 71, 68, 'Tempat sampah 71% penuh. Laju pengisian sedang, dimasukkan karena hujan diperkirakan sore ini.'),
+  h(4, 'Agus Hartono', 'Blok B No. 3', 'B', 85, 88, 'Tempat sampah 85% penuh dan laju pengisian cepat.'),
+  h(5, 'Rina Marlina', 'Blok B No. 15', 'B', 64, 62, 'Tempat sampah 64% penuh. Dimasukkan sebagai antisipasi hujan.'),
+  h(6, 'Hasan Basri', 'Blok B No. 9', 'B', 48, 40, 'Tempat sampah 48% penuh. Prioritas rendah, diambil karena searah dengan rute.'),
+  h(7, 'Lina Anggraini', 'Blok C No. 3', 'C', 90, 94, 'Tempat sampah 90% penuh dan hampir penuh hari ini.'),
+  h(8, 'Eko Prabowo', 'Blok C No. 10', 'C', 58, 55, 'Tempat sampah 58% penuh. Dimasukkan agar tidak menumpuk saat hujan.'),
+  h(9, 'Tuti Handayani', 'Blok C No. 18', 'C', 67, 65, 'Tempat sampah 67% penuh dan laju pengisian sedang.'),
 ].map((x, i) => ({ ...x, route_order: i + 1 }));
 
 export const api = {
@@ -39,11 +46,42 @@ export const api = {
   getSchedule() {
     if (!MOCK) return request('/schedules/today');
     const s = getSession();
-    return wait(s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule);
+    const list = s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule;
+    return wait([...list].sort((a, b) => a.route_order - b.route_order));
   },
   async markCollected(id) {
     if (!MOCK) return request(`/schedules/${id}/collected`, { method: 'PATCH' });
     schedule = schedule.map((x) => (x.schedule_id === id ? { ...x, status: 'collected', current_fill_level: 0 } : x));
+    return wait({ message: 'ok' });
+  },
+  async getScheduleSummary() {
+    if (!MOCK) return request('/schedules/summary');
+    return wait({
+      summary: 'Hujan diperkirakan sore ini, jadi rumah dengan tempat sampah hampir penuh didahulukan dan beberapa rumah dengan isi sedang ikut dimasukkan.',
+      generated_by: 'ai',
+    });
+  },
+    // override (mock)
+  async removeStop(id) {
+    if (!MOCK) return request(`/schedules/${id}/skip`, { method: 'PATCH' });
+    schedule = schedule.map((x) => (x.schedule_id === id && x.status === 'pending' ? { ...x, status: 'skipped' } : x));
+    return wait({ message: 'ok' });
+  },
+  // swaps route_order with the neighbour in the same zone
+  async moveStop(id, direction) {
+    if (!MOCK) return request(`/schedules/${id}/move`, { method: 'PATCH', body: JSON.stringify({ direction }) });
+    const me = schedule.find((x) => x.schedule_id === id);
+    if (!me || me.status !== 'pending') return wait({ message: 'ok' });
+    const sameZone = schedule
+      .filter((x) => x.zone === me.zone && x.status === 'pending')
+      .sort((a, b) => a.route_order - b.route_order);
+    const i = sameZone.findIndex((x) => x.schedule_id === id);
+    const other = sameZone[direction === 'up' ? i - 1 : i + 1];
+    if (!other) return wait({ message: 'ok' }); // already first/last
+    const a = me.route_order, b = other.route_order;
+    schedule = schedule.map((x) =>
+      x.schedule_id === me.schedule_id ? { ...x, route_order: b }
+      : x.schedule_id === other.schedule_id ? { ...x, route_order: a } : x);
     return wait({ message: 'ok' });
   },
   getOfficers() {
