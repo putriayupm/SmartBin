@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { pool } from './config/db.js';
+import authRoutes from './routes/auth.js';
+import householdRoutes from './routes/households.js';
 
 const app = express();
 app.use(cors());
@@ -14,6 +16,15 @@ app.get('/api/health', async (req, res) => {
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/households', householdRoutes);
+
+// Fallback error handler (Express 5 forwards async errors here)
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ message: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 5000;
