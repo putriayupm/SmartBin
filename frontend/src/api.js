@@ -121,8 +121,7 @@ export const api = {
     if (!MOCK) return request('/weather');
     return wait({ available: true, rain_expected: true, rainy_periods: 1, summary: 'Hujan diperkirakan pada 1 periode (3 jam) dalam 24 jam ke depan.' });
   },
-
-    // ---- household management (operator) ----
+  // ---- household management (operator) ----
   async getHouseholds() {
     if (!MOCK) return request('/households');
     return wait(mockHouseholds);
@@ -160,6 +159,31 @@ export const api = {
     mockOfficers = mockOfficers.map((x) => (x.user_id === id ? { ...x, ...data } : x));
     return wait({ message: 'ok' });
   },
-
-
+  // ---- history (Syifa) ----
+  getHistory(limit = 10) {
+    if (!MOCK) return request(`/history?limit=${limit}`);
+    return wait(mockHistory().slice(0, limit));
+  },
+  getHistorySummary(days = 7) {
+    if (!MOCK) return request(`/history/summary?days=${days}`);
+    return wait(mockSummary());
+  },
 };
+const dayStr = (back) => new Date(Date.now() - back * 864e5).toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' });
+const mockSummary = () => {
+  const days = [8, 9, 7, 9, 9, 8, 6].map((c, i) => ({ date: dayStr(7 - i), scheduled: 9, collected: c }));
+  const sched = days.reduce((a, d) => a + d.scheduled, 0);
+  const coll = days.reduce((a, d) => a + d.collected, 0);
+  return { total_collections: coll, completion_rate: Math.round((coll / sched) * 1000) / 10, days };
+};
+const mockHistory = () => [
+  ['Lina Anggraini', 'Blok C No. 3', 'C', 'Dedi Kurniawan', '09:12'],
+  ['Hasan Basri', 'Blok B No. 9', 'B', 'Joko Prasetyo', '08:40'],
+  ['Agus Hartono', 'Blok B No. 3', 'B', 'Joko Prasetyo', '08:21'],
+  ['Budi Santoso', 'Blok A No. 7', 'A', 'Slamet Riyadi', '08:05'],
+  ['Sari Wulandari', 'Blok A No. 12', 'A', 'Slamet Riyadi', '07:48'],
+  ['Tuti Handayani', 'Blok C No. 18', 'C', 'Dedi Kurniawan', '07:35'],
+].map(([household_name, address, zone, officer_name, t], i) => ({
+  history_id: i + 1, household_name, address, zone, officer_name,
+  collected_at: `${dayStr(1)}T${t}:00+07:00`,
+}));
