@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS notification_logs, collection_history, schedules, calendar_events, households, users CASCADE;
+DROP TABLE IF EXISTS schedule_runs, notification_logs, collection_history, schedules, calendar_events, households, users CASCADE;
 
 CREATE TABLE users (
   user_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -26,15 +26,27 @@ CREATE TABLE households (
 );
 
 CREATE TABLE schedules (
-  schedule_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  schedule_date  DATE NOT NULL,
-  household_id   UUID NOT NULL REFERENCES households(household_id),
-  officer_id     UUID NOT NULL REFERENCES users(user_id),
-  priority_score NUMERIC(5,2) NOT NULL,
-  route_order    INTEGER NOT NULL,
-  reason         TEXT,
-  status         VARCHAR(12) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','collected','skipped')),
+  schedule_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  schedule_date   DATE NOT NULL,
+  household_id    UUID NOT NULL REFERENCES households(household_id),
+  officer_id      UUID NOT NULL REFERENCES users(user_id),
+  priority_score  NUMERIC(5,2) NOT NULL,
+  route_order     INTEGER NOT NULL,
+  reason          TEXT,
+  status          VARCHAR(12) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','collected','skipped')),
+  override_reason TEXT,
+  overridden_by   UUID REFERENCES users(user_id),
+  overridden_at   TIMESTAMPTZ,
   UNIQUE (schedule_date, household_id)
+);
+
+CREATE TABLE schedule_runs (
+  run_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  schedule_date DATE NOT NULL,
+  zone          TEXT NOT NULL,
+  summary       TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (schedule_date, zone)
 );
 
 CREATE TABLE collection_history (
@@ -51,6 +63,7 @@ CREATE TABLE notification_logs (
   schedule_date   DATE NOT NULL,
   channel         VARCHAR(20) NOT NULL,
   status          VARCHAR(10) NOT NULL,
+  error_message   TEXT,
   sent_at         TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
