@@ -1,8 +1,10 @@
 import { predictDaysUntilFull } from './prediction.js';
+import { pool as sharedPool } from '../config/db.js';
+
 
 // Reads all households in a zone and adds predicted_days_until_full
 // `pool` is a pg Pool (injected, so we can swap in Putri's shared pool later).
-export async function getBinStatus(zone, pool) {
+export async function getBinStatus(zone, pool = sharedPool) {
   if (!zone || typeof zone !== 'string') {
     throw new Error('getBinStatus: zone must be a non-empty string');
   }
