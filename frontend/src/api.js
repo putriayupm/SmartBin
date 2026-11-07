@@ -48,6 +48,13 @@ const adaptForecast = (f) => ({
   text: f?.summary || '',
 });
 
+const num = (v) => (v == null ? v : Number(v));
+const normalizeStop = (r) => ({
+  ...r,
+  current_fill_level: num(r.current_fill_level), priority_score: num(r.priority_score),
+  latitude: num(r.latitude), longitude: num(r.longitude),
+});
+
 export const api = {
   async login({ username, password, role }) {
     if (!MOCK) return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, role }) });
@@ -55,8 +62,8 @@ export const api = {
     if (!u || password !== 'smartbin123') { await wait(0); throw new Error('Nama pengguna atau kata sandi tidak cocok dengan peran yang dipilih.'); }
     return wait({ token: 'mock-token', ...u });
   },
-  getSchedule() {
-    if (!MOCK) return request('/schedules/today');
+  async getSchedule() {
+    if (!MOCK) return (await request('/schedules/today')).map(normalizeStop);
     const s = getSession();
     const list = s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule;
     return wait([...list].sort((a, b) => a.route_order - b.route_order));
@@ -75,7 +82,7 @@ export const api = {
   },
     // override (mock)
   async removeStop(id) {
-    if (!MOCK) return request(`/schedules/${id}/skip`, { method: 'PATCH' });
+        if (!MOCK) return request(`/schedules/${id}/override`, { method: 'PATCH', body: JSON.stringify({ status: 'skipped' }) });
     schedule = schedule.map((x) => (x.schedule_id === id && x.status === 'pending' ? { ...x, status: 'skipped' } : x));
     return wait({ message: 'ok' });
   },
