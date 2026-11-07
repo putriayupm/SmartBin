@@ -1,5 +1,5 @@
 // Builds the system prompt. maxStops is injected so the prompt and validateSchedule agree.
-export function buildSystemPrompt({ maxStops = 20 } = {}) {
+export function buildSystemPrompt({ maxStops = 11 } = {}) {
   return `You are the scheduling agent of SmartBin, a household waste collection system for one residential neighborhood in Jakarta.
 
 TASK
@@ -22,6 +22,7 @@ RULES
 - The LLM does NOT calculate routes. Use the order returned by optimize_route exactly as given. Do not reorder it.
 - priority_score is a number from 0 to 100 (100 = most urgent).
 - Write "reason" and "summary" in Bahasa Indonesia. Each reason is one or two short sentences that mention the real numbers (fill level, rain, holiday) behind the decision.
+- If optimize_route returns fallback = true, the routing service was unavailable: keep the order you sent (fullest first) and say in the summary that the route was not optimized.
 
 OUTPUT FORMAT
 Reply with JSON only. No markdown, no code fences, no text before or after:

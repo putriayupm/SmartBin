@@ -6,16 +6,26 @@ const wait = (v) => new Promise((r) => setTimeout(() => r(structuredClone(v)), 2
 export const getSession = () => JSON.parse(localStorage.getItem('session') || 'null');
 export const logout = () => localStorage.removeItem('session');
 
+const ERROR_ID = {
+  'Invalid username or password': 'Nama pengguna atau kata sandi tidak cocok dengan peran yang dipilih.',
+  'Forbidden: insufficient role': 'Kamu tidak punya akses untuk tindakan ini.',
+  'Missing or invalid Authorization header': 'Sesi berakhir, silakan masuk lagi.',
+  'Invalid or expired token': 'Sesi berakhir, silakan masuk lagi.',
+  'Schedule not found, already collected, or not yours': 'Jadwal tidak ditemukan atau sudah dikumpulkan.',
+  'Collected schedules cannot be overridden': 'Jadwal yang sudah dikumpulkan tidak bisa diubah.',
+  'Username already exists': 'Nama pengguna sudah dipakai.',
+  'password must be at least 8 characters': 'Kata sandi minimal 8 karakter.',
+};
+
 async function request(path, options = {}) {
   const s = getSession();
-  let res;
-  try {
-    res = await fetch(`${API_URL}${path}`, { ...options, headers: {
-      'Content-Type': 'application/json', ...(s && { Authorization: `Bearer ${s.token}` }) } });
-  } catch {
-    throw new Error('Tidak dapat terhubung ke server. Periksa koneksi atau coba lagi nanti.');
+  const res = await fetch(`${API_URL}${path}`, { ...options, headers: {
+    'Content-Type': 'application/json', ...(s && { Authorization: `Bearer ${s.token}` }) } });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 401 && s) { logout(); window.location.reload(); }
+    throw new Error(ERROR_ID[body.message] || body.message || `Gagal (${res.status})`);
   }
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || `Gagal (${res.status})`);
   return res.json();
 }
 
@@ -54,6 +64,12 @@ const normalizeStop = (r) => ({
   current_fill_level: num(r.current_fill_level), priority_score: num(r.priority_score),
   latitude: num(r.latitude), longitude: num(r.longitude),
 });
+let mockHouseholds = schedule.map((x) => ({
+  household_id: x.schedule_id, name: x.name, address: x.address, zone: x.zone,
+  latitude: null, longitude: null, current_fill_level: x.current_fill_level,
+}));
+let mockOfficers = users.filter((u) => u.role === 'officer')
+  .map((u) => ({ user_id: u.username, name: u.name, username: u.username, phone_number: null, assigned_zone: u.zone }));
 
 export const api = {
   async login({ username, password, role }) {
@@ -70,11 +86,15 @@ export const api = {
   },
   async markCollected(id) {
     if (!MOCK) return request(`/schedules/${id}/collected`, { method: 'PATCH' });
-    schedule = schedule.map((x) => (x.schedule_id === id ? { ...x, status: 'collected', current_fill_level: 0 } : x));
+    schedule = schedule.map((x) => (x.schedule_id === id && x.status === 'pending' ? { ...x, status: 'collected', current_fill_level: 0 } : x));
     return wait({ message: 'ok' });
   },
   async getScheduleSummary() {
-    if (!MOCK) return request('/schedules/summary');
+    if (!MOCK) {
+      const rows = await request('/schedules/summary');
+      const text = rows.map((r) => (rows.length > 1 ? `Zona ${r.zone}: ${r.summary}` : r.summary)).join(' ');
+      return { summary: text, generated_by: 'ai' };
+    }
     return wait({
       summary: 'Hujan diperkirakan sore ini, jadi rumah dengan tempat sampah hampir penuh didahulukan dan beberapa rumah dengan isi sedang ikut dimasukkan.',
       generated_by: 'ai',
@@ -82,7 +102,7 @@ export const api = {
   },
     // override (mock)
   async removeStop(id) {
-        if (!MOCK) return request(`/schedules/${id}/override`, { method: 'PATCH', body: JSON.stringify({ status: 'skipped' }) });
+    if (!MOCK) return request(`/schedules/${id}/override`, { method: 'PATCH', body: JSON.stringify({ status: 'skipped', reason: 'Dilewati oleh operator' }) });
     schedule = schedule.map((x) => (x.schedule_id === id && x.status === 'pending' ? { ...x, status: 'skipped' } : x));
     return wait({ message: 'ok' });
   },
@@ -103,8 +123,11 @@ export const api = {
       : x.schedule_id === other.schedule_id ? { ...x, route_order: a } : x);
     return wait({ message: 'ok' });
   },
-  getOfficers() {
-    if (!MOCK) return request('/users/officers');
+    async getOfficers() {
+    if (!MOCK) {
+      const rows = await request('/users/officers');
+      return rows.map((o) => ({ ...o, role: 'officer', zone: o.assigned_zone }));
+    }
     return wait(users.filter((u) => u.role === 'officer'));
   },
   async getForecast() {
@@ -114,13 +137,52 @@ export const api = {
       summary: 'Hujan diperkirakan sore ini. Agen AI menaikkan prioritas tempat sampah yang hampir penuh.',
     }));
   },
+  // ---- household management (operator) ----
+  async getHouseholds() {
+    if (!MOCK) return request('/households');
+    return wait(mockHouseholds);
+  },
+  async createHousehold(data) {
+    if (!MOCK) return request('/households', { method: 'POST', body: JSON.stringify(data) });
+    const row = { ...data, household_id: `mock-${Date.now()}`, current_fill_level: 0 };
+    mockHouseholds = [...mockHouseholds, row];
+    return wait(row);
+  },
+  async updateHousehold(id, data) {
+    if (!MOCK) return request(`/households/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    mockHouseholds = mockHouseholds.map((x) => (x.household_id === id ? { ...x, ...data } : x));
+    return wait({ message: 'ok' });
+  },
+  async setFillLevel(id, level) {
+    if (!MOCK) return request(`/households/${id}/fill-level`, { method: 'PATCH', body: JSON.stringify({ current_fill_level: level }) });
+    mockHouseholds = mockHouseholds.map((x) => (x.household_id === id ? { ...x, current_fill_level: level } : x));
+    return wait({ message: 'ok' });
+  },
+  // ---- officer management (operator) ----
+  async getOfficerList() {
+    if (!MOCK) return request('/users/officers');
+    return wait(mockOfficers);
+  },
+  async createOfficer(data) {
+    if (!MOCK) return request('/users/officers', { method: 'POST', body: JSON.stringify(data) });
+    const row = { ...data, user_id: data.username };
+    delete row.password;
+    mockOfficers = [...mockOfficers, row];
+    return wait(row);
+  },
+  async updateOfficer(id, data) {
+    if (!MOCK) return request(`/users/officers/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    mockOfficers = mockOfficers.map((x) => (x.user_id === id ? { ...x, ...data } : x));
+    return wait({ message: 'ok' });
+  },
+  // ---- history (Syifa) ----
   getHistory(limit = 10) {
-  if (!MOCK) return request(`/history?limit=${limit}`);
-  return wait(mockHistory().slice(0, limit));
+    if (!MOCK) return request(`/history?limit=${limit}`);
+    return wait(mockHistory().slice(0, limit));
   },
   getHistorySummary(days = 7) {
-  if (!MOCK) return request(`/history/summary?days=${days}`);
-  return wait(mockSummary());
+    if (!MOCK) return request(`/history/summary?days=${days}`);
+    return wait(mockSummary());
   },
 };
 const dayStr = (back) => new Date(Date.now() - back * 864e5).toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' });

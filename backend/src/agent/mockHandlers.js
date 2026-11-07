@@ -45,11 +45,11 @@ export function createMockHandlers({ scenario = 'normal', pool, today = '2026-11
     // Contract: {ordered_household_ids, distance_meters, duration}
     // Mock keeps the input order. The real routing API (Syifa) will reorder.
     async optimize_route({ household_ids }) {
-      return {
-        ordered_household_ids: household_ids.map(String),
-        distance_meters: household_ids.length * 250,
-        duration: `${household_ids.length * 3} min`,
-      };
+      const ids = household_ids.map(String);
+      if (ids.length > 11) { // mirrors the real service limit (Mapbox: 12 points incl. depot)
+        return { ordered_household_ids: ids, distance_meters: null, duration: null, fallback: true };
+      }
+      return { ordered_household_ids: ids, distance_meters: ids.length * 250, duration: ids.length * 180 };
     },
   };
 }

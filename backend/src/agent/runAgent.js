@@ -17,7 +17,7 @@ function withTimeout(promise, ms, label) {
 // Never throws: always returns { ok, data, error, turns, toolCalls, usage, latency_ms }.
 export async function runAgent({
   client, model, zone, handlers, today,
-  maxTurns = 8, maxTokens = 2000, maxStops = 20,
+  maxTurns = 8, maxTokens = 2000, maxStops = 11,
 }) {
   const started = Date.now();
   const usage = { input_tokens: 0, output_tokens: 0 };
