@@ -17,7 +17,7 @@ export default function Schedule() {
   const shown = rows.filter((r) => zone === 'all' || r.zone === zone);
   const active = shown.filter((r) => r.status !== 'skipped');
   const done = active.filter((r) => r.status === 'collected').length;
-  const next = s.role === 'officer' ? shown.find((r) => r.status !== 'collected') : null;
+  const next = s.role === 'officer' ? shown.find((r) => r.status === 'pending') : null;
   return (<>
     <h1>Jadwal dan rute hari ini</h1>
     <p className="muted">Urutan disusun oleh agen AI berdasarkan isi tempat sampah, cuaca, dan hari libur.</p>
