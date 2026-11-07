@@ -15,7 +15,7 @@ export function todayInJakarta() {
 export async function runDailyJob({
   pool, client, model, handlers,
   zones, date = todayInJakarta(), force = false,
-  sendMessage = null, maxTurns = 8, maxStops = 20, log = console,
+  sendMessage = null, maxTurns = 8, maxStops = 11, log = console,
 }) {
   let zoneList = zones;
   if (!zoneList) {
@@ -44,7 +44,7 @@ async function processZone(zone, ctx) {
   try {
     // 1. Officer of this zone
     const officers = (await pool.query(
-      `SELECT user_id, name, phone_number FROM users
+      `SELECT user_id, name, phone_number, assigned_zone FROM users
         WHERE role = 'officer' AND assigned_zone = $1 ORDER BY user_id`, [zone])).rows;
     if (officers.length === 0) return out('failed', { reason: `No officer assigned to zone ${zone}` });
     if (officers.length > 1) log.warn(`[daily-job] zone ${zone} has ${officers.length} officers, using the first`);
@@ -87,8 +87,14 @@ async function processZone(zone, ctx) {
       notification = 'not_needed'; // empty schedule: nothing to tell the officer
     } else if (sendMessage) {
       try {
-        await sendMessage(officer, date);
-        notification = 'sent';
+        const res = await sendMessage(officer, date);
+        // Syifa's contract: never throws, returns { status: 'sent' | 'failed', error? }
+        if (res?.status === 'sent') {
+          notification = 'sent';
+        } else {
+          notification = 'failed';
+          log.error(`[daily-job] zone ${zone} notification failed: ${res?.error ?? 'unexpected result'}`);
+        }
       } catch (err) {
         notification = 'failed';
         log.error(`[daily-job] zone ${zone} notification failed: ${err.message}`);
