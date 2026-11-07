@@ -5,7 +5,7 @@ import { runDailyJob } from '../src/jobs/runDailyJob.js';
 import { createMockHandlers } from '../src/agent/mockHandlers.js';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
-const DATES = ['2099-02-01', '2099-02-02', '2099-02-03', '2099-02-04', '2099-02-05'];
+const DATES = ['2099-02-01', '2099-02-02', '2099-02-03', '2099-02-04', '2099-02-05', '2099-02-06'];
 const silent = { info() {}, warn() {}, error() {} };
 const usage = { input_tokens: 100, output_tokens: 20 }; // FAKE numbers, not a real measurement
 
@@ -40,9 +40,14 @@ function smartClient({ mode = 'good' } = {}) {
   };
 }
 
-const makeSender = ({ fail = false } = {}) => {
+const makeSender = ({ fail = false, failReturn = false } = {}) => {
   const sent = [];
-  const fn = async (officer, date) => { if (fail) throw new Error('WhatsApp down'); sent.push({ officer_id: officer.user_id, date }); };
+  const fn = async (officer, date) => {
+    if (fail) throw new Error('WhatsApp down');
+    if (failReturn) return { status: 'failed', error: 'WhatsApp down' };
+    sent.push({ officer_id: officer.user_id, date });
+    return { status: 'sent' };
+  };
   return Object.assign(fn, { sent });
 };
 const rowsOf = (date, zone) => pool.query(
@@ -112,6 +117,13 @@ try {
   assert.equal(r.results[0].status, 'failed');
   assert.match(r.results[0].reason, /No officer/);
   assert.equal(r.results[1].status, 'saved');
+
+  // 8) WhatsApp returns { status: 'failed' } WITHOUT throwing (Syifa's contract):
+  // must be recorded as failed, and the schedule stays saved
+  r = await run(DATES[5], { client: smartClient(), zones: ['A'], sendMessage: makeSender({ failReturn: true }) });
+  console.log('8) notification returns failed', r.results.map((x) => [x.zone, x.status, x.notification]));
+  assert.deepEqual([r.results[0].status, r.results[0].notification], ['saved', 'failed']);
+  assert.equal((await rowsOf(DATES[5], 'A')).length, 5);
 
   console.log('ALL CHECKS PASSED');
 } catch (err) {
