@@ -4,6 +4,7 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Schedule from './pages/Schedule.jsx';
 import History from './pages/History.jsx';
+import RouteMapPage from './pages/RouteMapPage.jsx';
 
 function Shell({ role, children }) {
   const s = getSession(); const nav = useNavigate();
@@ -16,6 +17,7 @@ function Shell({ role, children }) {
           {s.role === 'operator' && <NavLink to="/dasbor">Dasbor</NavLink>}
           {s.role === 'operator' && <NavLink to="/riwayat">Laporan</NavLink>}
           <NavLink to="/jadwal">Jadwal dan rute</NavLink>
+          <NavLink to="/peta">Peta rute</NavLink>
         </nav>
         <div className="me">{s.name}<div style={{ opacity: .75 }}>{s.role === 'operator' ? 'Operator' : `Petugas, Zona ${s.zone}`}</div>
           <button onClick={() => { logout(); nav('/login'); }}>Keluar</button></div>
@@ -32,6 +34,7 @@ export default function App() {
       <Route path="/dasbor" element={<Shell role="operator"><Dashboard /></Shell>} />
       <Route path="/jadwal" element={<Shell><Schedule /></Shell>} />
       <Route path="/riwayat" element={<Shell role="operator"><History /></Shell>} />
+      <Route path="/peta" element={<Shell><RouteMapPage /></Shell>} />
       <Route path="*" element={<Navigate to={s ? (s.role === 'operator' ? '/dasbor' : '/jadwal') : '/login'} replace />} />
     </Routes>
   );
