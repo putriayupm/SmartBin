@@ -77,7 +77,8 @@ async function processZone(zone, ctx) {
 
     // 6. Save (one transaction)
     const saved = await saveSchedule(pool, {
-      scheduleDate: date, zone, officerId: officer.user_id, households: v.schedule.households, force,
+      scheduleDate: date, zone, officerId: officer.user_id,
+      households: v.schedule.households, summary: v.schedule.summary, force,
     });
     if (saved.skipped) return out('skipped', { reason: saved.reason, agent: agentInfo });
 
@@ -88,9 +89,12 @@ async function processZone(zone, ctx) {
     } else if (sendMessage) {
       try {
         const res = await sendMessage(officer, date);
-        // Syifa's contract: never throws, returns { status: 'sent' | 'failed', error? }
+        // Syifa's contract: never throws, returns { status: 'sent' | 'failed' | 'skipped', error? }
         if (res?.status === 'sent') {
           notification = 'sent';
+        } else if (res?.status === 'skipped') {
+          notification = 'not_configured'; // credentials missing: not a failure
+          log.warn(`[daily-job] zone ${zone} notification skipped: ${res?.error ?? 'not configured'}`);
         } else {
           notification = 'failed';
           log.error(`[daily-job] zone ${zone} notification failed: ${res?.error ?? 'unexpected result'}`);
@@ -102,7 +106,7 @@ async function processZone(zone, ctx) {
     }
 
     return out('saved', {
-      inserted: saved.inserted, deleted: saved.deleted, notification,
+      inserted: saved.inserted, deleted: saved.deleted, kept: saved.kept, notification,
       summary: v.schedule.summary, agent: agentInfo,
     });
   } catch (err) {
