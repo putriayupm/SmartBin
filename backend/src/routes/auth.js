@@ -7,9 +7,9 @@ const router = Router();
 
 // POST /api/auth/login -> { token, role, name, username, zone }
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) {
-    return res.status(400).json({ message: 'username and password are required' });
+  const { username, password, role } = req.body || {};                 // CHANGED: read role too
+  if (!username || !password || !role) {                               // CHANGED: role is required
+    return res.status(400).json({ message: 'username, password and role are required' });
   }
 
   const { rows } = await pool.query(
@@ -18,8 +18,8 @@ router.post('/login', async (req, res) => {
   );
   const user = rows[0];
 
-  // Same message for unknown user and wrong password (do not reveal which one)
-  const ok = user && (await bcrypt.compare(password, user.password_hash));
+  // Same message for unknown user, wrong password and wrong role (do not reveal which one)
+  const ok = user && user.role === role && (await bcrypt.compare(password, user.password_hash)); // CHANGED: role must match
   if (!ok) {
     return res.status(401).json({ message: 'Invalid username or password' });
   }
