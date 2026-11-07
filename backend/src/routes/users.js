@@ -4,16 +4,28 @@ import { pool } from '../config/db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
+router.use(authenticate, requireRole('operator'));
 
-router.get('/officers', authenticate, requireRole('operator'), async (req, res) => {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Normalizes an Indonesian phone number to the stored format 62812... (digits only)
+function normalizePhone(input) {
+  if (input === undefined || input === null || String(input).trim() === '') return null;
+  let p = String(input).replace(/[\s\-().]/g, '');
+  if (p.startsWith('+')) p = p.slice(1);
+  if (p.startsWith('0')) p = '62' + p.slice(1);
+  if (!/^62\d{8,13}$/.test(p)) throw new Error('INVALID_PHONE');
+  return p;
+}
+
+// GET /api/users/officers
+router.get('/officers', async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT user_id, name, username, phone_number, assigned_zone AS zone
-     FROM users WHERE role = 'officer' ORDER BY assigned_zone`
+    `SELECT user_id, name, username, phone_number, assigned_zone
+     FROM users WHERE role = 'officer' ORDER BY assigned_zone, name`
   );
   res.json(rows);
 });
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // POST /api/users/officers
 router.post('/officers', async (req, res) => {
@@ -24,6 +36,9 @@ router.post('/officers', async (req, res) => {
   if (String(password).length < 8) {
     return res.status(400).json({ message: 'password must be at least 8 characters' });
   }
+  let phone;
+  try { phone = normalizePhone(phone_number); }
+  catch { return res.status(400).json({ message: 'Invalid phone number' }); }
 
   const hash = await bcrypt.hash(password, 10);
   try {
@@ -31,7 +46,7 @@ router.post('/officers', async (req, res) => {
       `INSERT INTO users (name, username, password_hash, role, assigned_zone, phone_number)
        VALUES ($1,$2,$3,'officer',$4,$5)
        RETURNING user_id, name, username, phone_number, assigned_zone`,
-      [name, username, hash, assigned_zone, phone_number ?? null]
+      [name, username, hash, assigned_zone, phone]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -52,6 +67,11 @@ router.patch('/officers/:id', async (req, res) => {
   if (name === undefined && phone_number === undefined && assigned_zone === undefined) {
     return res.status(400).json({ message: 'Provide at least one field to update' });
   }
+  let phone = null;
+  if (phone_number !== undefined) {
+    try { phone = normalizePhone(phone_number); }
+    catch { return res.status(400).json({ message: 'Invalid phone number' }); }
+  }
 
   const { rows } = await pool.query(
     `UPDATE users
@@ -60,7 +80,7 @@ router.patch('/officers/:id', async (req, res) => {
          assigned_zone = COALESCE($4, assigned_zone)
      WHERE user_id = $1 AND role = 'officer'
      RETURNING user_id, name, username, phone_number, assigned_zone`,
-    [id, name ?? null, phone_number ?? null, assigned_zone ?? null]
+    [id, name ?? null, phone, assigned_zone ?? null]
   );
   if (rows.length === 0) {
     return res.status(404).json({ message: 'Officer not found' });
