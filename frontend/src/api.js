@@ -15,6 +15,7 @@ const ERROR_ID = {
   'Collected schedules cannot be overridden': 'Jadwal yang sudah dikumpulkan tidak bisa diubah.',
   'Username already exists': 'Nama pengguna sudah dipakai.',
   'password must be at least 8 characters': 'Kata sandi minimal 8 karakter.',
+    'Invalid phone number': 'Nomor WhatsApp tidak valid. Contoh: 0812xxxxxxx atau 62812xxxxxxx.',
 };
 
 async function request(path, options = {}) {
