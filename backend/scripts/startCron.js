@@ -1,9 +1,7 @@
 import 'dotenv/config';
-import pg from 'pg';
 import { startDailyCron } from '../src/jobs/scheduler.js';
 import { createJob } from '../src/jobs/createJob.js';
-
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
+import { pool } from '../src/config/db.js';
 
 // createJob runs INSIDE the tick: a missing key is logged each run instead of crashing the process.
 const task = startDailyCron({

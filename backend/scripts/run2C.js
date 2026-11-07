@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import fs from 'node:fs';
-import pg from 'pg';
 import Anthropic from '@anthropic-ai/sdk';
 import { runAgent } from '../src/agent/runAgent.js';
 import { validateSchedule } from '../src/agent/validateSchedule.js';
 import { createMockHandlers } from '../src/agent/mockHandlers.js';
 import { getBinStatus } from '../src/services/binStatus.js';
+import { pool } from '../src/config/db.js';
 
 // Usage: node scripts/run2C.js [--runs=1] [--zone=A] [--price-in=USD_per_M] [--price-out=USD_per_M] [--dry]
 // --dry uses a FAKE client (no API call, no cost) just to check this script works.
@@ -53,7 +53,6 @@ function makeClient() {
   return new Anthropic({ timeout: 60_000 }); // VERIFY in SDK docs
 }
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
 const rows = [];
 
 try {
