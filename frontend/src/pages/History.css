@@ -1,0 +1,34 @@
+/* Halaman Laporan: Riwayat & kinerja. Kelas berawalan hs- agar tidak mengubah halaman lain. */
+.hs-stats{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:1rem}
+.hs-note{margin:1rem 0}
+.hs-chart-card,.hs-recent{margin-bottom:1.25rem}
+.hs-plot{display:grid;grid-template-columns:2.6rem 1fr;gap:.5rem;margin-top:4.5rem}
+.hs-yaxis{display:flex;flex-direction:column;justify-content:space-between;height:180px;font-size:.8rem;line-height:1;color:var(--mute);text-align:right}
+.hs-bars{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
+.hs-bars::before{content:"";position:absolute;left:0;right:0;top:0;height:180px;pointer-events:none;
+  background:linear-gradient(var(--line),var(--line)) 0 0/100% 1px no-repeat,
+             linear-gradient(var(--line),var(--line)) 0 50%/100% 1px no-repeat,
+             linear-gradient(var(--line),var(--line)) 0 100%/100% 1px no-repeat}
+.hs-col{position:relative;display:flex;flex-direction:column;align-items:center;outline-offset:2px;border-radius:6px}
+.hs-track{position:relative;z-index:1;width:100%;height:180px;display:flex;align-items:flex-end;justify-content:center}
+.hs-track i{display:block;width:100%;max-width:24px;background:var(--green);border-radius:4px 4px 0 0;transition:background .15s}
+.hs-col:hover i,.hs-col:focus i{background:var(--green-d)}
+.hs-day{margin-top:.4rem;font-size:.8rem;color:var(--mute);white-space:nowrap}
+.hs-tip{display:none;position:absolute;z-index:3;top:0;left:50%;transform:translate(-50%,-100%);margin-top:-6px;
+  min-width:9.5rem;padding:.55rem .7rem;background:#fff;border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 4px 8px -2px rgba(0,0,0,.12);font-size:.85rem;line-height:1.35;pointer-events:none}
+.hs-tip b{display:block;font-size:1.15rem;color:var(--ink)}
+.hs-tip span{display:block}
+.hs-col:last-child .hs-tip{left:auto;right:0;transform:translateY(-100%)}
+.hs-col:hover .hs-tip,.hs-col:focus .hs-tip{display:block}
+.hs-link{margin-top:1rem;background:none;border:0;padding:.4rem 0;color:var(--green);font-weight:600;text-decoration:underline}
+.hs-scroll{overflow-x:auto;margin-top:.75rem}
+.hs-table{width:100%;border-collapse:collapse;font-size:.92rem}
+.hs-table th{text-align:left;font-weight:600;color:var(--mute);padding:.5rem .6rem;border-bottom:1px solid var(--line);white-space:nowrap}
+.hs-table td{padding:.6rem;border-bottom:1px solid var(--line);vertical-align:top}
+.hs-table tbody tr:last-child td{border-bottom:0}
+.hs-table td:nth-child(n+2):nth-last-child(-n+2){font-variant-numeric:tabular-nums}
+@media(max-width:800px){.hs-plot{grid-template-columns:2.2rem 1fr;margin-top:5rem}.hs-bars{gap:4px}.hs-day{font-size:.72rem}}
+
+/* grid child must be allowed to shrink so the table scrolls inside its card instead of widening the page */
+.main:has(.hs-recent){min-width:0}
