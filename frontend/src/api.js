@@ -15,6 +15,7 @@ const ERROR_ID = {
   'Collected schedules cannot be overridden': 'Jadwal yang sudah dikumpulkan tidak bisa diubah.',
   'Username already exists': 'Nama pengguna sudah dipakai.',
   'password must be at least 8 characters': 'Kata sandi minimal 8 karakter.',
+    'Invalid phone number': 'Nomor WhatsApp tidak valid. Contoh: 0812xxxxxxx atau 62812xxxxxxx.',
 };
 
 async function request(path, options = {}) {
@@ -64,6 +65,14 @@ const normalizeStop = (r) => ({
   current_fill_level: num(r.current_fill_level), priority_score: num(r.priority_score),
   latitude: num(r.latitude), longitude: num(r.longitude),
 });
+
+// Sample coordinates around Ciater so the route map works in mock mode (keyed by schedule_id)
+const mockCoords = {
+  1: [-6.3190, 106.6886], 2: [-6.3197, 106.6894], 3: [-6.3205, 106.6902],
+  4: [-6.3212, 106.6910], 5: [-6.3220, 106.6918], 6: [-6.3228, 106.6911],
+  7: [-6.3236, 106.6903], 8: [-6.3229, 106.6895], 9: [-6.3221, 106.6888],
+};
+
 let mockHouseholds = schedule.map((x) => ({
   household_id: x.schedule_id, name: x.name, address: x.address, zone: x.zone,
   latitude: null, longitude: null, current_fill_level: x.current_fill_level,
@@ -82,7 +91,12 @@ export const api = {
     if (!MOCK) return (await request('/schedules/today')).map(normalizeStop);
     const s = getSession();
     const list = s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule;
-    return wait([...list].sort((a, b) => a.route_order - b.route_order));
+      const withCoords = list.map((x) => ({
+      ...x,
+      latitude: mockCoords[x.schedule_id]?.[0],
+      longitude: mockCoords[x.schedule_id]?.[1],
+    }));
+    return wait(withCoords.sort((a, b) => a.route_order - b.route_order));
   },
   async markCollected(id) {
     if (!MOCK) return request(`/schedules/${id}/collected`, { method: 'PATCH' });

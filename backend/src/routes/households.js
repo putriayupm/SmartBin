@@ -58,8 +58,8 @@ router.patch('/:id', async (req, res) => {
     return res.status(400).json({ message: 'Invalid household id' });
   }
   const { name, address, zone, latitude, longitude, bin_capacity } = req.body || {};
-  if ([name, address, zone, latitude, longitude, bin_capacity].every((v) => v === undefined)) {
-    return res.status(400).json({ message: 'Provide at least one field to update' });
+  if (!name || !address || !zone || latitude == null || longitude == null) {
+    return res.status(400).json({ message: 'name, address, zone, latitude and longitude are required' });
   }
 
   const { rows } = await pool.query(
