@@ -4,6 +4,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+router.use(authenticate);
 
 // Today's schedule. Officers see only their own stops; operators see everything.
 router.get('/today', authenticate, async (req, res) => {
