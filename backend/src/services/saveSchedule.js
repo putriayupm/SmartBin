@@ -61,3 +61,15 @@ export async function saveSchedule(pool, { scheduleDate, zone, officerId, househ
     client.release(); // always give the connection back to the pool
   }
 }
+
+// True if any schedule row already exists for this date + zone (zone comes from households).
+export async function scheduleExists(pool, scheduleDate, zone) {
+  const { rowCount } = await pool.query(
+    `SELECT 1 FROM schedules s
+       JOIN households h ON h.household_id = s.household_id
+      WHERE s.schedule_date = $1 AND h.zone = $2
+      LIMIT 1`,
+    [scheduleDate, zone],
+  );
+  return rowCount > 0;
+}
