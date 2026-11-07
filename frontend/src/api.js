@@ -51,6 +51,13 @@ let schedule = [
   h(9, 'Tuti Handayani', 'Blok C No. 18', 'C', 67, 65, 'Tempat sampah 67% penuh dan laju pengisian sedang.'),
 ].map((x, i) => ({ ...x, route_order: i + 1 }));
 
+// Sample coordinates around Ciater so the route map works in mock mode (keyed by schedule_id)
+const mockCoords = {
+  1: [-6.3190, 106.6886], 2: [-6.3197, 106.6894], 3: [-6.3205, 106.6902],
+  4: [-6.3212, 106.6910], 5: [-6.3220, 106.6918], 6: [-6.3228, 106.6911],
+  7: [-6.3236, 106.6903], 8: [-6.3229, 106.6895], 9: [-6.3221, 106.6888],
+};
+
 let mockHouseholds = schedule.map((x) => ({
   household_id: x.schedule_id, name: x.name, address: x.address, zone: x.zone,
   latitude: null, longitude: null, current_fill_level: x.current_fill_level,
@@ -69,7 +76,12 @@ export const api = {
     if (!MOCK) return request('/schedules/today');
     const s = getSession();
     const list = s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule;
-    return wait([...list].sort((a, b) => a.route_order - b.route_order));
+      const withCoords = list.map((x) => ({
+      ...x,
+      latitude: mockCoords[x.schedule_id]?.[0],
+      longitude: mockCoords[x.schedule_id]?.[1],
+    }));
+    return wait(withCoords.sort((a, b) => a.route_order - b.route_order));
   },
   async markCollected(id) {
     if (!MOCK) return request(`/schedules/${id}/collected`, { method: 'PATCH' });
