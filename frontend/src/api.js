@@ -52,6 +52,20 @@ let schedule = [
   h(9, 'Tuti Handayani', 'Blok C No. 18', 'C', 67, 65, 'Tempat sampah 67% penuh dan laju pengisian sedang.'),
 ].map((x, i) => ({ ...x, route_order: i + 1 }));
 
+// Translates the agreed weather contract {available, rain_expected, rainy_periods, summary}
+// into the shape the Dashboard uses {rain, text}. If the forecast is unavailable, show no banner.
+const adaptForecast = (f) => ({
+  rain: Boolean(f?.available && f?.rain_expected),
+  text: f?.summary || '',
+});
+
+const num = (v) => (v == null ? v : Number(v));
+const normalizeStop = (r) => ({
+  ...r,
+  current_fill_level: num(r.current_fill_level), priority_score: num(r.priority_score),
+  latitude: num(r.latitude), longitude: num(r.longitude),
+});
+
 // Sample coordinates around Ciater so the route map works in mock mode (keyed by schedule_id)
 const mockCoords = {
   1: [-6.3190, 106.6886], 2: [-6.3197, 106.6894], 3: [-6.3205, 106.6902],
@@ -73,8 +87,8 @@ export const api = {
     if (!u || password !== 'smartbin123') { await wait(0); throw new Error('Nama pengguna atau kata sandi tidak cocok dengan peran yang dipilih.'); }
     return wait({ token: 'mock-token', ...u });
   },
-  getSchedule() {
-    if (!MOCK) return request('/schedules/today');
+  async getSchedule() {
+    if (!MOCK) return (await request('/schedules/today')).map(normalizeStop);
     const s = getSession();
     const list = s.role === 'officer' ? schedule.filter((x) => x.zone === s.zone) : schedule;
       const withCoords = list.map((x) => ({
@@ -86,7 +100,7 @@ export const api = {
   },
   async markCollected(id) {
     if (!MOCK) return request(`/schedules/${id}/collected`, { method: 'PATCH' });
-    schedule = schedule.map((x) => (x.schedule_id === id ? { ...x, status: 'collected', current_fill_level: 0 } : x));
+    schedule = schedule.map((x) => (x.schedule_id === id && x.status === 'pending' ? { ...x, status: 'collected', current_fill_level: 0 } : x));
     return wait({ message: 'ok' });
   },
   async getScheduleSummary() {
@@ -130,9 +144,12 @@ export const api = {
     }
     return wait(users.filter((u) => u.role === 'officer'));
   },
-  getForecast() {
-    if (!MOCK) return request('/weather');
-    return wait({ available: true, rain_expected: true, rainy_periods: 1, summary: 'Hujan diperkirakan pada 1 periode (3 jam) dalam 24 jam ke depan.' });
+  async getForecast() {
+    if (!MOCK) return adaptForecast(await request('/weather'));
+    return wait(adaptForecast({
+      available: true, rain_expected: true, rainy_periods: 3,
+      summary: 'Hujan diperkirakan sore ini. Agen AI menaikkan prioritas tempat sampah yang hampir penuh.',
+    }));
   },
   // ---- household management (operator) ----
   async getHouseholds() {

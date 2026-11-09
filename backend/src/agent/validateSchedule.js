@@ -33,7 +33,7 @@ export function parseAgentOutput(text) {
 // knownHouseholdIds: IDs returned by getBinStatus(zone).
 // Returns { valid, errors, schedule }. `schedule` is null when invalid,
 // so the caller cannot accidentally save or send a bad schedule.
-export function validateSchedule(output, knownHouseholdIds, { maxStops = 20 } = {}) {
+export function validateSchedule(output, knownHouseholdIds, { maxStops = 11 } = {}) {
   const errors = [];
 
   if (!output || typeof output !== 'object' || Array.isArray(output)) {
