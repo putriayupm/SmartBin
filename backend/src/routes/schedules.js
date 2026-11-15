@@ -4,6 +4,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+router.use(authenticate);
 
 // Today's schedule. Officers see only their own stops; operators see everything.
 router.get('/today', authenticate, async (req, res) => {
@@ -25,6 +26,66 @@ router.get('/today', authenticate, async (req, res) => {
     params
   );
   res.json(rows);
+});
+
+// PATCH /api/schedules/:id/collected  (officer only, own schedule only)
+router.patch('/:id/collected', requireRole('officer'), async (req, res) => {
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) {
+    return res.status(400).json({ message: 'Invalid schedule id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Mark as collected (only if pending and owned by this officer)
+    const upd = await client.query(
+      `UPDATE schedules SET status = 'collected'
+       WHERE schedule_id = $1 AND officer_id = $2 AND status = 'pending'
+       RETURNING household_id`,
+      [id, req.user.user_id]
+    );
+    if (upd.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Schedule not found, already collected, or not yours' });
+    }
+    const householdId = upd.rows[0].household_id;
+
+    // 2. Write history
+    await client.query(
+      `INSERT INTO collection_history (household_id, officer_id, schedule_id, collected_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [householdId, req.user.user_id, id]
+    );
+
+    // 3. Feedback loop: recompute daily fill rate, then reset the bin
+    const hh = await client.query(
+      `SELECT current_fill_level,
+              EXTRACT(EPOCH FROM (NOW() - last_collected_at)) / 86400 AS days_since
+       FROM households WHERE household_id = $1 FOR UPDATE`,
+      [householdId]
+    );
+    const fill = Number(hh.rows[0].current_fill_level);
+    const days = Math.max(Number(hh.rows[0].days_since) || 1, 1);
+    const rate = Math.min(Math.max(fill / days, 1), 50);
+    const dailyRate = Math.round(rate * 100) / 100;
+
+    await client.query(
+      `UPDATE households
+       SET current_fill_level = 0, last_collected_at = NOW(), daily_fill_rate = $2
+       WHERE household_id = $1`,
+      [householdId, dailyRate]
+    );
+
+    await client.query('COMMIT');
+    res.json({ schedule_id: id, household_id: householdId, status: 'collected', daily_fill_rate: dailyRate });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 // PATCH /api/schedules/:id/override  (operator only)
@@ -143,13 +204,14 @@ router.patch('/:id/move', requireRole('operator'), async (req, res) => {
     const dir = direction === 'up' ? 'DESC' : 'ASC';
     const nb = await client.query(
       `SELECT schedule_id, route_order FROM schedules
-       WHERE schedule_date = $1::date AND officer_id = $2 AND route_order ${cmp} $3
+        WHERE schedule_date = $1::date AND officer_id = $2 AND route_order ${cmp} $3
+          AND status = 'pending'
        ORDER BY route_order ${dir} LIMIT 1 FOR UPDATE`,
       [s.d, s.officer_id, s.route_order]
     );
     if (nb.rowCount === 0) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ message: `Already at the ${direction === 'up' ? 'top' : 'bottom'}` });
+            return res.status(409).json({ message: `No pending stop to swap with (${direction})` });
     }
 
     await client.query(
