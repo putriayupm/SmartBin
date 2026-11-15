@@ -80,7 +80,7 @@ export async function runAgent({
 
     const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
     const parsed = parseAgentOutput(text);
-    if (!parsed.ok) return result(false, null, parsed.error, turn);
+    if (!parsed.ok) return result(false, null, `${parsed.error} | raw: ${text.slice(0, 300)}`, turn);
     return result(true, parsed.data, null, turn);
   }
 
