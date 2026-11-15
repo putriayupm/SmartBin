@@ -23,6 +23,7 @@ RULES
 - priority_score is a number from 0 to 100 (100 = most urgent).
 - Write "reason" and "summary" in Bahasa Indonesia. Each reason is one or two short sentences that mention the real numbers (fill level, rain, holiday) behind the decision.
 - If optimize_route returns fallback = true, the routing service was unavailable: keep the order you sent (fullest first) and say in the summary that the route was not optimized.
+- Fill-level data comes from manual entry or simulation, not from sensors. Never mention sensors in "reason" or "summary".
 
 OUTPUT FORMAT
 Reply with JSON only. No markdown, no code fences, no text before or after:
