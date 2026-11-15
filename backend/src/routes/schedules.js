@@ -204,13 +204,14 @@ router.patch('/:id/move', requireRole('operator'), async (req, res) => {
     const dir = direction === 'up' ? 'DESC' : 'ASC';
     const nb = await client.query(
       `SELECT schedule_id, route_order FROM schedules
-       WHERE schedule_date = $1::date AND officer_id = $2 AND route_order ${cmp} $3
+        WHERE schedule_date = $1::date AND officer_id = $2 AND route_order ${cmp} $3
+          AND status = 'pending'
        ORDER BY route_order ${dir} LIMIT 1 FOR UPDATE`,
       [s.d, s.officer_id, s.route_order]
     );
     if (nb.rowCount === 0) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ message: `Already at the ${direction === 'up' ? 'top' : 'bottom'}` });
+            return res.status(409).json({ message: `No pending stop to swap with (${direction})` });
     }
 
     await client.query(
