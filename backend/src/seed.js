@@ -2,7 +2,7 @@ import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { pool } from './config/db.js';
 
-const hash = await bcrypt.hash('smartbin123', 10);
+const hash = await bcrypt.hash(process.env.SEED_PASSWORD || 'smartbin123', 10);
 
 const users = [
   ['Slamet Riyadi', 'slamet.riyadi', 'officer', 'A', '6281200000001'],
