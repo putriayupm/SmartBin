@@ -37,5 +37,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`SmartBin API berjalan di http://localhost:${PORT}`));
+export default app;
+
+// Vercel runs the app as a serverless function, so only listen when running locally or on a normal server
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`SmartBin API berjalan di http://localhost:${PORT}`));
+}
