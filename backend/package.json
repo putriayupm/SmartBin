@@ -7,6 +7,7 @@
     "dev": "node --watch src/app.js",
     "seed": "node src/seed.js",
     "seed:schedules": "node src/seedSchedules.js",
+    "job:once": "node src/jobs/runOnce.js",
     "test": "node --test"
   },
   "keywords": [],
